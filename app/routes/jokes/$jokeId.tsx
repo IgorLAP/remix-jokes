@@ -2,8 +2,9 @@ import type { ActionArgs, LoaderArgs, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, Link, useCatch, useLoaderData, useParams } from "@remix-run/react";
 
+import { JokeDisplay } from '~/components/joke';
 import { db } from "~/utils/db.server";
-import { requireUserId } from "~/utils/session.server";
+import { getUserId, requireUserId } from "~/utils/session.server";
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   if (!data) {
@@ -18,7 +19,8 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
   };
 };
 
-export const loader = async ({ params }: LoaderArgs) => {
+export const loader = async ({ params, request }: LoaderArgs) => {
+  const userId = await getUserId(request);
   const joke = await db.joke.findUnique({
     where: { id: params.jokeId },
   });
@@ -27,7 +29,7 @@ export const loader = async ({ params }: LoaderArgs) => {
       status: 404,
     });
   }
-  return json({ joke });
+  return json({ joke, isOwner: userId === joke.jokesterId });
 };
 
 export const action = async ({ params, request }: ActionArgs) => {
@@ -57,16 +59,7 @@ export default function JokeRoute() {
   const data = useLoaderData<typeof loader>();
 
   return (
-    <div>
-      <p>Here's your hilarious joke:</p>
-      <p>{data.joke.content}</p>
-      <Link to=".">{data.joke.name} Permalink</Link>
-      <Form method="post">
-        <button className="button" name="intent" type="submit" value="delete">
-          Delete
-        </button>
-      </Form>
-    </div>
+    <JokeDisplay isOwner={data.isOwner} joke={data.joke} />
   );
 }
 
